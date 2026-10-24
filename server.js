@@ -146,7 +146,7 @@ app.post('/api/plan-route', async (req, res) => {
     const dest = await geoRes(destination);
 
     // 2. Request OSRM Driving Route[cite: 4]
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${orig.lon},${orig.lat};${dest.lon},${dest.lat}?overview=full&geometries=geojson`;
+    const osrmUrl = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${orig.lon},${orig.lat};${dest.lon},${dest.lat}?overview=full&geometries=geojson`;
     const routeRes = await fetch(osrmUrl);
     const routeData = await routeRes.json();
 
