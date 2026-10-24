@@ -131,16 +131,16 @@ app.post('/api/plan-route', async (req, res) => {
 
     // 1. Geocode Origin & Destination via Nominatim (with required User-Agent header)
     const geoRes = async (q) => {
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=il&limit=1`, {
-        headers: { 
-          'Accept-Language': 'en',
-          'User-Agent': 'RouteBiteIsraelApp/1.0 (contact@routebite.local)'
+    const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=1`, {
+        headers: {
+            'User-Agent': 'RouteBiteIsraelApp/1.0'
         }
-      });
-      const d = await r.json();
-      if (!d || d.length === 0) throw new Error(`Location not found in Israel: "${q}"`);
-      return { lat: parseFloat(d[0].lat), lon: parseFloat(d[0].lon) };
-    };
+    });
+    const d = await r.json();
+    if (!d || !d.features || d.features.length === 0) throw new Error(`Location not found: "${q}"`);
+    const [lon, lat] = d.features[0].geometry.coordinates;
+    return { lat, lon };
+};
 
     const orig = await geoRes(origin);
     const dest = await geoRes(destination);
