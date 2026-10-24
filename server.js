@@ -179,7 +179,7 @@ app.post('/api/plan-route', async (req, res) => {
 
     let dynamicCatalog = [...BASE_CATALOG];
     try {
-      const ovRes = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: overpassQuery });
+      const ovRes = await fetch('https://overpass.kumi.systems/api/interpreter', { method: 'POST', body: overpassQuery });
       const ovData = await ovRes.json();
       if (ovData && ovData.elements) {
         ovData.elements.forEach(el => {
