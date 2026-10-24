@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <title>RouteBite Israel — Production App</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #0f172a; color: #f8fafc; font-family: sans-serif; }
+    .leaflet-container { background: #0b0f19 !important; }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between shadow">
+    <div class="flex items-center gap-3">
+      <div class="bg-amber-500 text-slate-950 font-extrabold px-3 py-1.5 rounded-lg text-lg">RB</div>
+      <h1 class="text-lg font-bold text-white">RouteBite Israel <span class="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">Production Server</span></h1>
+    </div>
+  </header>
+  <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+    <aside class="w-full lg:w-[440px] bg-slate-900 border-r border-slate-800 flex flex-col p-4 space-y-4 overflow-y-auto">
+      <form id="form" onsubmit="submitRoute(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Origin</label>
+          <input type="text" id="origin" required value="Tel Aviv" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Destination</label>
+          <input type="text" id="dest" required value="Rosh Pinna" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <button type="submit" id="btn" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-lg text-sm transition">Find Stops & Plan Route</button>
+      </form>
+      <div id="summary" class="hidden bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs flex justify-between">
+        <div><div id="dist" class="font-bold text-white text-sm">-- km</div><div id="time" class="text-slate-400">--</div></div>
+        <div class="text-right"><div id="surviving-count" class="text-amber-400 font-semibold">0 stops</div><div id="dropped-count" class="text-slate-500">0 dropped</div></div>
+      </div>
+      <div id="cards" class="space-y-3 flex-1"></div>
+    </aside>
+    <main class="flex-1 relative"><div id="map" class="w-full h-full"></div></main>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    let map = L.map('map', { zoomControl: false }).setView([31.7683, 35.2137], 8);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    let polyline = null, markers = [];
+
+    async function submitRoute(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn');
+      btn.disabled = true; btn.textContent = 'Computing Route & Open Data...';
+      try {
+        const res = await fetch('/api/plan-route', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ origin: document.getElementById('origin').value, destination: document.getElementById('dest').value })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        document.getElementById('dist').textContent = `${data.distanceKm.toFixed(1)} km`;
+        document.getElementById('time').textContent = `Drive: ${Math.round(data.durationMin)} mins`;
+        document.getElementById('surviving-count').textContent = `${data.surviving.length} stops on path`;
+        document.getElementById('dropped-count').textContent = `${data.dropped} dropped (>3km off)`;
+        document.getElementById('summary').classList.remove('hidden');
+
+        if (polyline) map.removeLayer(polyline);
+        polyline = L.polyline(data.routeCoords, { color: '#3b82f6', weight: 5 }).addTo(map);
+        map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+        const container = document.getElementById('cards');
+        container.innerHTML = '';
+
+        data.surviving.forEach((p, idx) => {
+          const card = document.createElement('div');
+          card.className = 'bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs';
+          card.innerHTML = `<div class="font-bold text-white text-sm mb-1">${p.heName}</div><div class="text-slate-400 mb-2">${p.locality}</div><div class="text-emerald-400 font-semibold">⚡ +${p.detourMins} min detour</div>`;
+          container.appendChild(card);
+
+          const m = L.marker([p.lat, p.lng]).addTo(map).bindPopup(`<b>${p.heName}</b><br>+${p.detourMins}m detour`);
+          markers.push(m);
+        });
+      } catch (err) { alert(err.message); }
+      finally { btn.disabled = false; btn.textContent = 'Find Stops & Plan Route'; }
+    }
+  </script>
+</body>
+</html>
